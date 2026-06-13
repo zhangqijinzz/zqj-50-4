@@ -226,11 +226,14 @@ export function Recipes() {
 function useLongPress(callback: () => void, ms = 500) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef(false);
+  const longPressedRef = useRef(false);
 
   const start = useCallback(() => {
     activeRef.current = true;
+    longPressedRef.current = false;
     timerRef.current = setTimeout(() => {
       if (activeRef.current) {
+        longPressedRef.current = true;
         callback();
       }
     }, ms);
@@ -245,11 +248,14 @@ function useLongPress(callback: () => void, ms = 500) {
   }, []);
 
   return {
-    onMouseDown: start,
-    onMouseUp: stop,
-    onMouseLeave: stop,
-    onTouchStart: start,
-    onTouchEnd: stop,
+    handlers: {
+      onMouseDown: start,
+      onMouseUp: stop,
+      onMouseLeave: stop,
+      onTouchStart: start,
+      onTouchEnd: stop,
+    },
+    longPressedRef,
   };
 }
 
@@ -269,7 +275,7 @@ function RecipeCard({
   const { toggleFavorite, removeFavorite } = useStore();
   const { matchPercentage, tags, cookTimeMinutes, potCount, coverEmoji, name, description, requiredIngredients, matchedIngredients, missingIngredients, steps } = recipe;
 
-  const longPressHandlers = useLongPress(() => {
+  const { handlers: longPressHandlers, longPressedRef } = useLongPress(() => {
     if (isFavorited) {
       removeFavorite(recipe.id);
     }
@@ -302,6 +308,10 @@ function RecipeCard({
           <motion.button
             onClick={(e) => {
               e.stopPropagation();
+              if (longPressedRef.current) {
+                longPressedRef.current = false;
+                return;
+              }
               toggleFavorite(recipe.id);
             }}
             whileTap={{ scale: 0.8 }}

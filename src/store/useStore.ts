@@ -240,8 +240,28 @@ export const useStore = create<StoreState>()(
       getFavoriteRecipes: () => {
         const { favoriteRecipeIds } = get();
         if (favoriteRecipeIds.length === 0) return [];
-        const all = get().getMatchedRecipes();
-        return all.filter(r => favoriteRecipeIds.includes(r.id));
+        const stockIds = get().getStockIds();
+
+        return RECIPES
+          .filter(r => favoriteRecipeIds.includes(r.id))
+          .map(recipe => {
+            const matchedIds = recipe.requiredIngredients.filter(id =>
+              stockIds.includes(id)
+            );
+            const matchPercentage = recipe.requiredIngredients.length === 0
+              ? 0
+              : Math.round((matchedIds.length / recipe.requiredIngredients.length) * 100);
+            const missingIds = recipe.requiredIngredients.filter(
+              id => !stockIds.includes(id)
+            );
+            return {
+              ...recipe,
+              matchPercentage,
+              matchedIngredients: matchedIds,
+              missingIngredients: missingIds,
+            } as MatchedRecipe;
+          })
+          .sort((a, b) => b.matchPercentage - a.matchPercentage);
       },
     }),
     {
