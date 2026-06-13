@@ -41,11 +41,21 @@ export function Recipes() {
           className="mb-6"
         >
           <h1 className="font-display text-3xl mb-1">
-            🍳 <span className="text-gradient">菜谱拼配</span>
+            {showFavoritesOnly ? (
+              <>⭐ <span className="text-gradient">我的收藏</span></>
+            ) : (
+              <>🍳 <span className="text-gradient">菜谱拼配</span></>
+            )}
           </h1>
           <p className="text-sm text-gray-500">
-            基于你冰箱里的 <span className="text-brand-500 font-medium">{stockIngredients.length}</span> 种食材，
-            找到了 <span className="text-brand-500 font-medium">{allMatched.length}</span> 道菜谱
+            {showFavoritesOnly ? (
+              <>已收藏 <span className="text-brand-500 font-medium">{favoriteRecipeIds.length}</span> 道菜谱</>
+            ) : (
+              <>
+                基于你冰箱里的 <span className="text-brand-500 font-medium">{stockIngredients.length}</span> 种食材，
+                找到了 <span className="text-brand-500 font-medium">{allMatched.length}</span> 道菜谱
+              </>
+            )}
           </p>
         </motion.div>
 
