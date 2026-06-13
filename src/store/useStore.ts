@@ -17,6 +17,7 @@ interface StoreState {
   stockIngredients: StockIngredient[];
   preferences: UserPreferences;
   customIngredients: Ingredient[];
+  favoriteRecipeIds: string[];
 
   addStockIngredient: (ingredientId: string, purchaseDate?: string) => void;
   removeStockIngredient: (ingredientId: string) => void;
@@ -24,6 +25,9 @@ interface StoreState {
   updatePurchaseDate: (ingredientId: string, purchaseDate: string) => void;
   togglePreference: (key: keyof UserPreferences) => void;
   addCustomIngredient: (ingredient: Ingredient) => void;
+  toggleFavorite: (recipeId: string) => void;
+  removeFavorite: (recipeId: string) => void;
+  isFavorite: (recipeId: string) => boolean;
 
   getAllIngredients: () => Ingredient[];
   getIngredientsByCategory: (category: IngredientCategory) => Ingredient[];
@@ -37,6 +41,7 @@ interface StoreState {
   getStockIds: () => string[];
   getMatchedRecipes: () => MatchedRecipe[];
   getFilteredRecipes: () => MatchedRecipe[];
+  getFavoriteRecipes: () => MatchedRecipe[];
 }
 
 const today = () => new Date().toISOString().split('T')[0];
@@ -68,6 +73,7 @@ export const useStore = create<StoreState>()(
       stockIngredients: [],
       preferences: initialPreferences,
       customIngredients: [],
+      favoriteRecipeIds: [],
 
       addStockIngredient: (ingredientId, purchaseDate) => {
         const base = INGREDIENT_MAP[ingredientId] ||
@@ -113,6 +119,23 @@ export const useStore = create<StoreState>()(
 
       addCustomIngredient: (ingredient) => {
         set({ customIngredients: [...get().customIngredients, ingredient] });
+      },
+
+      toggleFavorite: (recipeId) => {
+        const { favoriteRecipeIds } = get();
+        if (favoriteRecipeIds.includes(recipeId)) {
+          set({ favoriteRecipeIds: favoriteRecipeIds.filter(id => id !== recipeId) });
+        } else {
+          set({ favoriteRecipeIds: [...favoriteRecipeIds, recipeId] });
+        }
+      },
+
+      removeFavorite: (recipeId) => {
+        set({ favoriteRecipeIds: get().favoriteRecipeIds.filter(id => id !== recipeId) });
+      },
+
+      isFavorite: (recipeId) => {
+        return get().favoriteRecipeIds.includes(recipeId);
       },
 
       getAllIngredients: () => {
@@ -213,6 +236,13 @@ export const useStore = create<StoreState>()(
           })
         );
       },
+
+      getFavoriteRecipes: () => {
+        const { favoriteRecipeIds } = get();
+        if (favoriteRecipeIds.length === 0) return [];
+        const all = get().getMatchedRecipes();
+        return all.filter(r => favoriteRecipeIds.includes(r.id));
+      },
     }),
     {
       name: 'kitchen-rescue-storage',
@@ -220,6 +250,7 @@ export const useStore = create<StoreState>()(
         stockIngredients: state.stockIngredients,
         preferences: state.preferences,
         customIngredients: state.customIngredients,
+        favoriteRecipeIds: state.favoriteRecipeIds,
       }),
     }
   )

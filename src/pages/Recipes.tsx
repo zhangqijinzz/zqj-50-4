@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore, getIngredientById } from '@/store/useStore';
 import { Link } from 'react-router-dom';
-import { Clock, ChefHat, X, ChevronDown, ChevronUp, Filter, Sparkles, UtensilsCrossed, AlertCircle, Carrot } from 'lucide-react';
+import { Clock, ChefHat, X, ChevronDown, Filter, Sparkles, UtensilsCrossed, AlertCircle, Carrot, Star } from 'lucide-react';
 import type { MatchedRecipe, FilterKey } from '@/types';
 
 const FILTERS: { key: FilterKey; label: string; emoji: string }[] = [
@@ -13,18 +13,22 @@ const FILTERS: { key: FilterKey; label: string; emoji: string }[] = [
 ];
 
 export function Recipes() {
-  const { getFilteredRecipes, getMatchedRecipes, preferences, togglePreference, stockIngredients } = useStore();
+  const { getFilteredRecipes, getFavoriteRecipes, getMatchedRecipes, preferences, togglePreference, stockIngredients, favoriteRecipeIds } = useStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const filtered = getFilteredRecipes();
+  const favoriteRecipes = getFavoriteRecipes();
   const allMatched = getMatchedRecipes();
 
+  const baseList = showFavoritesOnly ? favoriteRecipes : filtered;
+
   const displayRecipes = useMemo(() => {
-    if (shuffleSeed === 0) return filtered;
-    const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+    if (shuffleSeed === 0) return baseList;
+    const shuffled = [...baseList].sort(() => Math.random() - 0.5);
     return shuffled;
-  }, [filtered, shuffleSeed]);
+  }, [baseList, shuffleSeed]);
 
   const activeFilters = Object.values(preferences).filter(Boolean).length;
 
@@ -59,15 +63,17 @@ export function Recipes() {
                 <span className="chip-blue !py-0.5">{activeFilters}项生效中</span>
               )}
             </div>
-            {allMatched.length > 2 && (
-              <button
-                onClick={() => setShuffleSeed(Date.now())}
-                className="text-xs text-brand-500 font-medium flex items-center gap-1 hover:text-brand-600 transition-colors"
-              >
-                <Sparkles size={14} />
-                随机一下
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {allMatched.length > 2 && !showFavoritesOnly && (
+                <button
+                  onClick={() => setShuffleSeed(Date.now())}
+                  className="text-xs text-brand-500 font-medium flex items-center gap-1 hover:text-brand-600 transition-colors"
+                >
+                  <Sparkles size={14} />
+                  随机一下
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             {FILTERS.map(({ key, label, emoji }) => {
@@ -91,13 +97,69 @@ export function Recipes() {
           </div>
         </motion.div>
 
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          className="mb-5"
+        >
+          <button
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
+              showFavoritesOnly
+                ? 'bg-amber-50 border-amber-300 shadow-sm'
+                : 'bg-white border-cream-200 hover:border-amber-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Star
+                size={18}
+                className={showFavoritesOnly ? 'text-amber-500 fill-amber-500' : 'text-gray-400'}
+              />
+              <span className={`text-sm font-medium ${showFavoritesOnly ? 'text-amber-700' : 'text-gray-600'}`}>
+                只看已收藏
+              </span>
+              {favoriteRecipeIds.length > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  showFavoritesOnly
+                    ? 'bg-amber-200/60 text-amber-700'
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {favoriteRecipeIds.length}
+                </span>
+              )}
+            </div>
+            <div className={`relative w-10 h-6 rounded-full transition-colors ${
+              showFavoritesOnly ? 'bg-amber-400' : 'bg-gray-200'
+            }`}>
+              <motion.div
+                className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm"
+                animate={{ left: showFavoritesOnly ? 18 : 2 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            </div>
+          </button>
+        </motion.div>
+
         {displayRecipes.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="card p-8 text-center"
           >
-            {stockIngredients.length === 0 ? (
+            {showFavoritesOnly ? (
+              <>
+                <div className="text-6xl mb-4">⭐</div>
+                <h3 className="font-display text-xl text-gray-800 mb-2">还没有收藏菜谱</h3>
+                <p className="text-sm text-gray-500 mb-5">点击菜谱卡片右上角的星星，收藏想做的菜谱吧</p>
+                <button
+                  onClick={() => setShowFavoritesOnly(false)}
+                  className="btn-primary"
+                >
+                  浏览全部菜谱
+                </button>
+              </>
+            ) : stockIngredients.length === 0 ? (
               <>
                 <div className="text-6xl mb-4">🧊</div>
                 <h3 className="font-display text-xl text-gray-800 mb-2">还没有食材哦</h3>
@@ -150,6 +212,7 @@ export function Recipes() {
                   onToggle={() =>
                     setExpandedId(expandedId === recipe.id ? null : recipe.id)
                   }
+                  isFavorited={favoriteRecipeIds.includes(recipe.id)}
                 />
               ))}
             </AnimatePresence>
@@ -160,18 +223,57 @@ export function Recipes() {
   );
 }
 
+function useLongPress(callback: () => void, ms = 500) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeRef = useRef(false);
+
+  const start = useCallback(() => {
+    activeRef.current = true;
+    timerRef.current = setTimeout(() => {
+      if (activeRef.current) {
+        callback();
+      }
+    }, ms);
+  }, [callback, ms]);
+
+  const stop = useCallback(() => {
+    activeRef.current = false;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  return {
+    onMouseDown: start,
+    onMouseUp: stop,
+    onMouseLeave: stop,
+    onTouchStart: start,
+    onTouchEnd: stop,
+  };
+}
+
 function RecipeCard({
   recipe,
   index,
   expanded,
   onToggle,
+  isFavorited,
 }: {
   recipe: MatchedRecipe;
   index: number;
   expanded: boolean;
   onToggle: () => void;
+  isFavorited: boolean;
 }) {
+  const { toggleFavorite, removeFavorite } = useStore();
   const { matchPercentage, tags, cookTimeMinutes, potCount, coverEmoji, name, description, requiredIngredients, matchedIngredients, missingIngredients, steps } = recipe;
+
+  const longPressHandlers = useLongPress(() => {
+    if (isFavorited) {
+      removeFavorite(recipe.id);
+    }
+  }, 600);
 
   const matchColor =
     matchPercentage >= 80
@@ -195,7 +297,38 @@ function RecipeCard({
       exit={{ opacity: 0, y: -20 }}
       transition={{ delay: index * 0.04 }}
     >
-      <div className="card overflow-hidden hover:shadow-float transition-all duration-300">
+      <div className="card overflow-hidden hover:shadow-float transition-all duration-300 relative">
+        <div className="absolute top-3 right-3 z-10">
+          <motion.button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite(recipe.id);
+            }}
+            whileTap={{ scale: 0.8 }}
+            whileHover={{ scale: 1.1 }}
+            {...longPressHandlers}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+              isFavorited
+                ? 'bg-amber-100 hover:bg-amber-200'
+                : 'bg-gray-50 hover:bg-amber-50'
+            }`}
+            title={isFavorited ? '长按移除收藏' : '点击收藏'}
+          >
+            <motion.div
+              animate={{
+                scale: isFavorited ? [1, 1.3, 1] : 1,
+                rotate: isFavorited ? [0, 15, -15, 0] : 0,
+              }}
+              transition={{ duration: 0.4 }}
+            >
+              <Star
+                size={16}
+                className={isFavorited ? 'text-amber-500 fill-amber-500' : 'text-gray-300'}
+              />
+            </motion.div>
+          </motion.button>
+        </div>
+
         <button onClick={onToggle} className="w-full text-left p-5">
           <div className="flex gap-4">
             <div className="relative flex-shrink-0">
@@ -237,11 +370,8 @@ function RecipeCard({
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2 mb-1">
+              <div className="flex items-start justify-between gap-2 mb-1 pr-6">
                 <h3 className="font-display text-xl text-gray-800 truncate">{name}</h3>
-                <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                  <ChevronDown size={20} className="text-gray-400 flex-shrink-0" />
-                </motion.div>
               </div>
               {description && (
                 <p className="text-xs text-gray-500 mb-3 line-clamp-1">{description}</p>
@@ -284,6 +414,11 @@ function RecipeCard({
                 )}
               </div>
             </div>
+          </div>
+          <div className="flex items-center justify-center mt-2">
+            <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown size={16} className="text-gray-300" />
+            </motion.div>
           </div>
         </button>
 
